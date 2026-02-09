@@ -1,0 +1,32 @@
+services:
+  # Backend API
+  fastpick-be:
+    image: maximum0/fastpick-be:latest
+    container_name: fastpick-be
+    restart: always
+    env_file: .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    volumes:
+      - ./logs:/logs
+    networks:
+      - fastpick-network
+
+  # Frontend + Nginx
+  fastpick-fe:
+    image: maximum0/fastpick-fe:latest
+    container_name: fastpick-fe
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - fastpick-be
+    networks:
+      - fastpick-network
+
+networks:
+  fastpick-network:
+    name: fastpick-network
+    driver: bridge
