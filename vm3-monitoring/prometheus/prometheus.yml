@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "fastpick-backend"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["fastpick-app:80"]
+
+  - job_name: "fastpick-db"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: "redis-exporter"
+    static_configs:
+      - targets: ["redis-exporter:9121"]

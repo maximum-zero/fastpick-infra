@@ -1,0 +1,64 @@
+services:
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    networks:
+      - fastpick-network
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    extra_hosts:
+      - "fastpick-app:${APP_HOST}"
+      - "fastpick-db:${DB_HOST}"
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    restart: always
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    networks:
+      - fastpick-network
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    restart: always
+
+  # Database Metric 추출기
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres-exporter
+    networks:
+      - fastpick-network
+    extra_hosts:
+      - "fastpick-db:${DB_HOST}"
+    environment:
+      # DB 세션, 트랜잭션, I/O 지표를 Prometheus 포맷으로 변환
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@fastpick-db:${DB_PORT}/${DB_NAME}?sslmode=disable"
+    ports:
+      - "${EXPORTER_PORT}:9187"
+    restart: always
+
+  # Redis Metric 추출기
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    networks:
+      - fastpick-network
+    extra_hosts:
+      - "fastpick-redis:${REDIS_HOST}"
+    environment:
+      # Redis의 OPS, 메모리 사용량, 연결 클라이언트 지표 추출
+      - REDIS_ADDR=redis://:${REDIS_PASSWORD}@fastpick-redis:6379
+    ports:
+      - "${REDIS_EXPORTER_PORT}:9121"
+    restart: always
+
+networks:
+  fastpick-network:
+    driver: bridge
+
+volumes:
+  grafana-storage:
