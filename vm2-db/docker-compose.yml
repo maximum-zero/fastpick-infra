@@ -1,0 +1,72 @@
+services:
+  # Database (PostgreSQL)
+  postgres:
+    image: postgres:17-alpine
+    container_name: fastpick-db
+    shm_size: "1gb" # Parallel Scan 성능 향상을 위한 공유 메모리 확장
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - /DATA/postgres/data:/var/lib/postgresql/data
+    networks:
+      - fastpick-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=1GB" # 전체 메모리의 약 25% 할당 (데이터 캐싱 최적화)
+      - "-c"
+      - "effective_cache_size=2GB" # OS 수준 캐시 활용도 최적화
+      - "-c"
+      - "work_mem=16MB" # 정렬/해시 조인 연산당 할당 메모리
+      - "-c"
+      - "maintenance_work_mem=256MB" # 인덱스 생성/VACUUM 성능 향상
+      - "-c"
+      - "max_connections=100" # 동시 연결 제한을 통한 DB 부하 조절
+      - "-c"
+      - "checkpoint_completion_target=0.9" # I/O 부하 분산을 통한 성능 변동 최소화
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: fastpick-redis
+    restart: always
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - fastpick-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--maxmemory"
+      - "512mb" # 0.5GB 상한 설정으로 OOM 방지
+      - "--maxmemory-policy"
+      - "allkeys-lru" # 메모리 초과 시 최근 사용 안 한 키부터 자동 삭제
+      - "--appendonly"
+      - "yes" # 데이터 유실 방지를 위한 AOF 활성화
+
+networks:
+  fastpick-network:
+    driver: bridge
+
+volumes:
+  redis-data:
